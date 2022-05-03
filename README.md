@@ -79,3 +79,22 @@ SELECT
 |scan.is-bounded|boolean|false|可选, scan 是否有界, 如果设置为无界scan时, 会自动监测 redis 数据变化, 当 redis 数据发生变化后, 就会触发流事件, 目前属于试验性质的功能 |
 
 
+## Flink Sql 数据类型支持说明
+|Type|Java Prototype|Supported|Note|
+|---|---|---|---|
+|ARRAY<?>|T[]|是|数组, 示例 ARRAY&lt;STRING&gt;|
+|BIGINT|Long|是| |
+|BOOLEAN|Boolean|是| |
+|CHAR|String|是| |
+|Decimal|BigDecimal|是| |
+|Date|LocalDate|是| |
+|DOUBLE|Double|是| |
+|FLOAT|Float|是| |
+|INT|Integer|是| |
+|MULTISET|Map|否|映射表，目前暂不支持|
+|SMALLINT|Short|是| |
+|STRING|String|是| |
+|TIME|LocalTime|是| |
+|TIMESTAMP|LocalDateTime|是|
+|VARBINARY|byte[]|是|字节数组, 会转换为 Hex 进行存储, 取出时再通过 Hex 解码|
+|VARCHAR|String|是| |

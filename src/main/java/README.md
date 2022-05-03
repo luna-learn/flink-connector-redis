@@ -21,12 +21,12 @@ CREATE DATABASE IF NOT EXISTS REDIS.DW;
 
 CREATE TABLE REDIS.DW.EXAMPLE_TABLE
 (
-  `KEY`       VARCHAR(100)   COMMENT '主键'
-, `VALUE`     VARCHAR(50)    COMMENT '值'
-, SCORE       DECIMALL(13,2) COMMENT '得分'
-, CREATE_DATE DATE           COMMENT '创建日期'
-, UPDATE_TIME TIMESTAMP(3)   COMMENT '更新时间'
-, PRIMARY KEY (KEY) NOT ENFORCED
+    `KEY`       VARCHAR(100)   COMMENT '主键'
+    , `VALUE`     VARCHAR(50)    COMMENT '值'
+    , SCORE       DECIMALL(13,2) COMMENT '得分'
+    , CREATE_DATE DATE           COMMENT '创建日期'
+    , UPDATE_TIME TIMESTAMP(3)   COMMENT '更新时间'
+    , PRIMARY KEY (KEY) NOT ENFORCED
 ) COMMENT 'REDIS.DW.EXAMPLE_TABLE.示例表'
 WITH (
 'connector' = 'redis',
@@ -41,12 +41,12 @@ WITH (
 );
 
 InSERT INTO REDIS.DW.EXAMPLE_TABLE
-SELECT 
-  CAST('测试主键' AS VARCHAR(100))
-, CAST('测试值' AS VARCHAR(50))
-, CAST(99.99 AS DECIMAL(13,2))
-, CURRENT_DATE
-, CURRENT_TIMESTAMP
+SELECT
+    CAST('测试主键' AS VARCHAR(100))
+     , CAST('测试值' AS VARCHAR(50))
+     , CAST(99.99 AS DECIMAL(13,2))
+     , CURRENT_DATE
+     , CURRENT_TIMESTAMP
 ;
 ```
 
@@ -79,3 +79,22 @@ SELECT
 |scan.is-bounded|boolean|false|可选, scan 是否有界, 如果设置为无界scan时, 会自动监测 redis 数据变化, 当 redis 数据发生变化后, 就会触发流事件, 目前属于试验性质的功能 |
 
 
+## Flink Sql 数据类型支持说明
+|Type|Java Prototype|Supported|Note|
+|---|---|---|---|
+|ARRAY<?>|T[]|是|数组, 示例 ARRAY&lt;STRING&gt;|
+|BIGINT|Long|是| |
+|BOOLEAN|Boolean|是| |
+|CHAR|String|是| |
+|Decimal|BigDecimal|是| |
+|Date|LocalDate|是| |
+|DOUBLE|Double|是| |
+|FLOAT|Float|是| |
+|INT|Integer|是| |
+|MULTISET|Map|否|映射表，目前暂不支持|
+|SMALLINT|Short|是| |
+|STRING|String|是| |
+|TIME|LocalTime|是| |
+|TIMESTAMP|LocalDateTime|是|
+|VARBINARY|byte[]|是|字节数组, 会转换为 Hex 进行存储, 取出时再通过 Hex 解码|
+|VARCHAR|String|是| |
