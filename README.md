@@ -2,15 +2,15 @@
 
 版本: 1.14.3  
 作者: luna-learn  
-更新时间: 2023/1/28 18:25
+更新时间: 2023/1/28 18:25  
 支持 flink 版本: 1.14.3
 
 说明：  
 (1) 基于 DynamicTableSourceFactory、DynamicTableSinkFactory 接口实现 Redis 读写。  
 (2) 目前支持 string, hash, stream 三种 Redis 数据结构类型。  
-(3) 可以通过 flink-sql 的方式映射 Redis 数据, 且支持 lookup, scan 和 stream 数据处理方式。
+(3) 可以通过 flink-sql 的方式映射 Redis 数据, 且支持 lookup, scan 和 stream 数据处理方式。  
 
-后续有时间会慢慢完善功能，有问题可以留言讨论。
+后续有时间会慢慢完善功能，有问题可以留言讨论。  
 
 ## Flink sql 示例
 
@@ -21,11 +21,11 @@ CREATE DATABASE IF NOT EXISTS REDIS.DW;
 
 CREATE TABLE REDIS.DW.EXAMPLE_TABLE
 (
-  `KEY`       VARCHAR(100)   COMMENT '键'
-, `VALUE`     ROW<
-    SCORE       DECIMALL(13,2) COMMENT '得分'
-  , CREATE_DATE DATE           COMMENT '创建日期'
-  , UPDATE_TIME TIMESTAMP(3)   COMMENT '更新时间'
+  `KEY`   VARCHAR(100)   COMMENT '键'
+, `VALUE` ROW<
+    SCORE       DECIMALL(13,2) -- COMMENT '得分'
+  , CREATE_DATE DATE           -- COMMENT '创建日期'
+  , UPDATE_TIME TIMESTAMP(3)   -- COMMENT '更新时间'
   > COMMENT '值'
 , PRIMARY KEY (`KEY`) NOT ENFORCED
 ) COMMENT 'REDIS建表示例表'
@@ -51,8 +51,8 @@ SELECT
 ```
 建表注意事项：  
 （1）表只能有两个字段，第一个字段必需是主键字段，第二个字段是数据字段；  
-（2）当 type = string 时，主键字段必须为STRING类型，数据字段目前支持基本数据类型和ROW复合数据类型；
-（3）当 type = hash 时，主键字段必须为STRING类型，数据字段目前仅支持ROW复合数据类型；
+（2）当 type = string 时，主键字段必须为STRING类型，数据字段目前支持基本数据类型和ROW复合数据类型；  
+（3）当 type = hash 时，主键字段必须为STRING类型，数据字段目前仅支持ROW复合数据类型；  
 （4）当 type = stream 时，必须设置 additional-key，字段格式与 hash 一致。
 
 ## Redis Options 说明
@@ -88,21 +88,22 @@ SELECT
 
 
 ## Flink Sql 数据类型支持说明
-|Type|Java Prototype|Supported|Note|
-|---|---|---|---|
-|ARRAY<?>|T[]|是|数组, 示例 ARRAY&lt;STRING&gt;|
-|BIGINT|Long|是| |
-|BOOLEAN|Boolean|是| |
-|CHAR|String|是| |
-|Decimal|BigDecimal|是| |
-|Date|LocalDate|是| |
-|DOUBLE|Double|是| |
-|FLOAT|Float|是| |
-|INT|Integer|是| |
-|MULTISET|Map|否|映射表，目前暂不支持|
-|SMALLINT|Short|是| |
-|STRING|String|是| |
-|TIME|LocalTime|是| |
-|TIMESTAMP|LocalDateTime|是|
-|VARBINARY|byte[]|是|字节数组, 会转换为 Hex 进行存储, 取出时再通过 Hex 解码|
-|VARCHAR|String|是| |
+| Type      | Java Prototype |Supported| Note                                            |
+|-----------|----------------|---|-------------------------------------------------|
+| ARRAY<?>  | T[]            |是| 数组, 示例: ARRAY&lt;STRING&gt;                     |
+| BIGINT    | Long           |是|                                                 |
+| BOOLEAN   | Boolean        |是|                                                 |
+| CHAR      | String         |是|                                                 |
+| Decimal   | BigDecimal     |是|                                                 |
+| Date      | LocalDate      |是|                                                 |
+| DOUBLE    | Double         |是|                                                 |
+| FLOAT     | Float          |是|                                                 |
+| INT       | Integer        |是|                                                 |
+| MULTISET  | Map            |否| 映射表, 目前暂不支持                                     |
+| ROW       | Class<T>       |是| 行, 示例: ROW&lt;col1 STRING, col2 INT, ......&gt; |
+| SMALLINT  | Short          |是|                                                 |
+| STRING    | String         |是|                                                 |
+| TIME      | LocalTime      |是|                                                 |
+| TIMESTAMP | LocalDateTime  |是|
+| VARBINARY | byte[]         |是| 字节数组, 会转换为 Hex 进行存储, 取出时再通过 Hex 解码              |
+| VARCHAR   | String         |是|                                                 |
