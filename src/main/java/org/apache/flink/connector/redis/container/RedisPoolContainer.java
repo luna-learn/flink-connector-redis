@@ -1,8 +1,8 @@
 package org.apache.flink.connector.redis.container;
 
 import org.apache.commons.pool2.impl.GenericObjectPoolConfig;
-import org.apache.flink.connector.redis.UnsupportedRedisException;
-import org.apache.flink.connector.redis.config.RedisConnectorOptions;
+import org.apache.flink.connector.redis.RedisUnsupportedException;
+import org.apache.flink.connector.redis.config.RedisConnectionOptions;
 import org.apache.flink.connector.redis.config.RedisOptions;
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.JedisPool;
@@ -16,12 +16,12 @@ import java.util.stream.Collectors;
 
 public class RedisPoolContainer extends RedisBaseContainer {
 
-    private final RedisConnectorOptions options;
+    private final RedisConnectionOptions options;
     private JedisPool jedisPool;
     private JedisSentinelPool sentinelPool;
     private Jedis jedis;
 
-    public RedisPoolContainer(RedisConnectorOptions options) {
+    public RedisPoolContainer(RedisConnectionOptions options) {
         this.options = options;
     }
 
@@ -35,7 +35,7 @@ public class RedisPoolContainer extends RedisBaseContainer {
                     jedis = sentinelPool.getResource();
                     break;
                 default:
-                    throw new UnsupportedRedisException("RedisPoolContainer unsupported " +
+                    throw new RedisUnsupportedException("RedisPoolContainer unsupported " +
                             "redis mode " + options.getMode());
             }
         }
@@ -73,9 +73,11 @@ public class RedisPoolContainer extends RedisBaseContainer {
                         options.getDatabase());
                 break;
             default:
-                throw new UnsupportedRedisException("RedisPoolContainer unsupported " +
+                throw new RedisUnsupportedException("RedisPoolContainer unsupported " +
                         "redis mode " + options.getMode());
         }
+        // 设置 isClosed = false 表示 container 准备就绪
+        this.isClosed = false;
     }
 
     @Override
@@ -94,7 +96,7 @@ public class RedisPoolContainer extends RedisBaseContainer {
     }
 
     @Override
-    public RedisConnectorOptions getOptions() {
+    public RedisConnectionOptions getOptions() {
         return options;
     }
 
