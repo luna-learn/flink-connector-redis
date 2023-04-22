@@ -40,8 +40,9 @@ public class RedisDynamicTableSink implements DynamicTableSink {
 
     @Override
     public SinkRuntimeProvider getSinkRuntimeProvider(Context context) {
-        RedisSinkOptions sinkOptions = new RedisSinkOptions();
-        return SinkFunctionProvider.of(new RedisTableSink(options, mapper, sinkOptions));
+        RedisSinkOptions sinkOptions = RedisSinkOptions.from(config);
+        return SinkFunctionProvider.of(
+                new RedisTableSink(options, mapper, sinkOptions), sinkOptions.getParallelism());
     }
 
     @Override

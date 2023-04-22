@@ -2,6 +2,7 @@ package org.apache.flink.connector.redis.config;
 
 import org.apache.flink.configuration.ConfigOption;
 import org.apache.flink.configuration.ConfigOptions;
+import org.apache.flink.table.factories.FactoryUtil;
 
 /**
  * RedisOptions
@@ -134,6 +135,8 @@ public class RedisOptions {
                     .defaultValue(-1)
                     .withDescription("The redis sink key ttl.");
 
+    public static final ConfigOption<Integer> SINK_PARALLELISM = FactoryUtil.SINK_PARALLELISM;
+
     public static final ConfigOption<Boolean> SCAN_IS_BOUNDED =
             ConfigOptions.key("scan.is-bounded")
                     .booleanType()
@@ -146,8 +149,8 @@ public class RedisOptions {
                     .noDefaultValue()
                     .withDescription("The redis stream group name.");
 
-    public static final ConfigOption<String> STEAM_ENTRY_ID =
-            ConfigOptions.key("stream.entry-id")
+    public static final ConfigOption<String> STEAM_ENTITY_ID =
+            ConfigOptions.key("stream.entity-id")
                     .stringType()
                     .noDefaultValue()
                     .withDescription("The redis stream start entity id.");
