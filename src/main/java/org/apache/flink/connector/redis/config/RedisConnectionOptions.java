@@ -157,7 +157,11 @@ public class RedisConnectionOptions implements Serializable {
         }
 
         public Builder setPassword(String password) {
-            this.password = password;
+            if (password == null || password.length() == 0) {
+                this.password = null;
+            } else {
+                this.password = password;
+            }
             return this;
         }
 
