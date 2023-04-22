@@ -5,154 +5,78 @@ import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.core.JsonProcessin
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.DeserializationFeature;
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.node.ArrayNode;
 import org.apache.flink.table.data.*;
-import org.apache.flink.table.types.logical.*;
-import org.apache.flink.table.types.logical.utils.LogicalTypeChecks;
-import org.apache.flink.table.types.logical.utils.LogicalTypeUtils;
+import org.apache.flink.table.types.logical.ArrayType;
+import org.apache.flink.table.types.logical.LogicalType;
+import org.apache.flink.table.types.logical.LogicalTypeFamily;
+import org.apache.flink.table.types.logical.RowType;
 
-import java.io.IOException;
-import java.lang.reflect.Array;
-import java.math.BigDecimal;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
-import java.util.Arrays;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
- * RedisBaseRowDataFormatter
+ * RedisJsonFormatter
+ *
  * @author Liu Yang
  * @date 2023/1/16 9:23
  */
-public class RedisJsonFormatter implements RedisFormatter<Object, String> {
+public class RedisJsonFormatter extends RedisBaseFormatter {
 
     private final ObjectMapper objectMapper = new ObjectMapper();
-    private final Deserializer runTimeDeserializer;
-    private final Serializer runTimeSerializer;
 
     public RedisJsonFormatter(LogicalType logicalType) {
-        runTimeDeserializer = createDeserializer(logicalType);
-        runTimeSerializer = createSerializer(logicalType);
+        super(logicalType);
         objectMapper.configure(JsonGenerator.Feature.IGNORE_UNKNOWN, true);
         objectMapper.enable(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS);
         objectMapper.enable(DeserializationFeature.ACCEPT_EMPTY_ARRAY_AS_NULL_OBJECT);
     }
 
     @Override
-    public Object deserialize(String value) throws IOException {
-        return runTimeDeserializer.convert(value);
-    }
-
-    @Override
-    public String serialize(Object value) throws IOException {
-        return runTimeSerializer.convert(value);
-    }
-
-    //===========================================================
-    public interface Deserializer {
-        Object convert(String value);
-    }
-
-    public interface Serializer {
-        String convert(Object value);
-    }
-
-    private Deserializer createDeserializer(LogicalType logicalType) {
-        switch (logicalType.getTypeRoot()) {
-            case NULL:
-                return (value) -> null;
-            case BOOLEAN:
-                return RedisFormatterUtils::parseBoolean;
-            case TINYINT:
-                return RedisFormatterUtils::parseByte;
-            case SMALLINT:
-                return RedisFormatterUtils::parseShort;
-            case INTEGER:
-            case INTERVAL_YEAR_MONTH:
-                return RedisFormatterUtils::parseInt;
-            case BIGINT:
-            case INTERVAL_DAY_TIME:
-                return RedisFormatterUtils::parseLong;
-            case FLOAT:
-                return RedisFormatterUtils::parseFloat;
-            case DOUBLE:
-                return RedisFormatterUtils::parseDouble;
-            case CHAR:
-            case VARCHAR:
-                return StringData::fromString;
-            case BINARY:
-            case VARBINARY:
-                return RedisFormatterUtils::hexToBytes;
-            case DATE:
-                return RedisFormatterUtils::parseDate;
-            case TIME_WITHOUT_TIME_ZONE:
-                return RedisFormatterUtils::parseTime;
-            case TIMESTAMP_WITHOUT_TIME_ZONE:
-                return RedisFormatterUtils::parseDateTime;
-            case TIMESTAMP_WITH_LOCAL_TIME_ZONE:
-                return RedisFormatterUtils::parseDateTimeWithLocalTimeZone;
-            case DECIMAL:
-                DecimalType decimalType = (DecimalType) logicalType;
-                final int precision = decimalType.getPrecision();
-                final int scale = decimalType.getScale();
-                return value -> DecimalData.fromBigDecimal(new BigDecimal(value), precision, scale);
-            case ARRAY:
-                return createArrayDeserializer((ArrayType) logicalType);
-            case MAP:
-                MapType mapType = (MapType) logicalType;
-                return createMapDeserializer(mapType.asSummaryString(), mapType.getKeyType(), mapType.getValueType());
-            case MULTISET:
-                MultisetType multisetType = (MultisetType) logicalType;
-                return createMapDeserializer(multisetType.asSummaryString(),
-                        multisetType.getElementType(),
-                        new IntType());
-            case ROW:
-                return createRowDeserializer((RowType) logicalType);
-            case RAW:
-            default:
-                throw new UnsupportedOperationException("Not support to parse type: " + logicalType);
-        }
-    }
-
-    private Deserializer createArrayDeserializer(ArrayType type) {
+    public Deserializer<String, Object> createArrayDeserializer(ArrayType type) {
         final LogicalType elementType = type.getElementType();
-        final Deserializer elementDeserializer = createDeserializer(elementType);
-        final Class<?> elementClass =
-                LogicalTypeUtils.toInternalConversionClass(type.getElementType());
+        final Deserializer<String, Object> deserializer = createDeserializer(elementType);
         return value -> {
             final JsonNode jsonNode;
-            final Object[] data;
+            final ArrayNode arrayNode;
+            final Object[] values;
             try {
                 jsonNode = objectMapper.readTree(value);
                 if (jsonNode.isArray()) {
-                    int nodeSize = jsonNode.size();
-                    data = (Object[]) Array.newInstance(elementClass, nodeSize);
-                    for (int i = 0; i < jsonNode.size(); i++) {
-                        final JsonNode innerNode = jsonNode.get(i);
-                        data[i] = elementDeserializer.convert(innerNode.textValue());
+                    arrayNode = (ArrayNode) jsonNode;
+                    final int fieldCount = arrayNode.size();
+                    values = new Object[arrayNode.size()];
+                    for(int i = 0; i < fieldCount; i++) {
+                        JsonNode element = arrayNode.get(i);
+                        if (element.isNull()) {
+                            values[i] = null;
+                        } else {
+                            values[i] = deserializer.deserialize(element.asText());
+                        }
                     }
-                    return new GenericArrayData(data);
+                    return new GenericArrayData(values);
                 } else {
-                    throw new RuntimeException("Unsupported non-array data");
+                    throw new RuntimeException("Unsupported non-array data " + jsonNode);
                 }
             } catch (JsonProcessingException e) {
                 throw new RuntimeException(
-                        String.format("Redis json format fail to deserialize array result: %s.", value), e);
+                        String.format("Redis json format fail to deserialize map result: %s.", value), e);
             }
         };
     }
 
-    private Deserializer createMapDeserializer(String typeSummary, LogicalType keyType, LogicalType valueType) {
-        if (!LogicalTypeChecks.hasFamily(keyType, LogicalTypeFamily.CHARACTER_STRING)) {
+    @Override
+    public Deserializer<String, Object> createMapDeserializer(String typeSummary, LogicalType keyType, LogicalType valueType) {
+        if (!keyType.getTypeRoot().getFamilies().contains(LogicalTypeFamily.CHARACTER_STRING)) {
             throw new UnsupportedOperationException(
                     "JSON format doesn't support non-string as key type of map. "
                             + "The type is: "
                             + typeSummary);
         }
-        final Deserializer keyDeserializer = createDeserializer(keyType);
-        final Deserializer valueDeserializer = createDeserializer(valueType);
+        final Deserializer<String, Object> keyDeserializer = createDeserializer(keyType);
+        final Deserializer<String, Object> valueDeserializer = createDeserializer(valueType);
         return value -> {
             final JsonNode jsonNode;
             final Map<Object, Object> data;
@@ -170,16 +94,16 @@ public class RedisJsonFormatter implements RedisFormatter<Object, String> {
                             continue;
                         }
                         if (nodeValue == null) {
-                            data.put(keyDeserializer.convert(nodeKey), null);
+                            data.put(keyDeserializer.deserialize(nodeKey), null);
                         } else {
-                            data.put(keyDeserializer.convert(nodeKey),
-                                    valueDeserializer.convert(nodeValue.textValue()));
+                            data.put(keyDeserializer.deserialize(nodeKey),
+                                    valueDeserializer.deserialize(nodeValue.textValue()));
                         }
 
                     }
                     return new GenericMapData(data);
                 } else {
-                    throw new RuntimeException("Unsupported non-object data");
+                    throw new RuntimeException("Unsupported non-object data " + jsonNode);
                 }
             } catch (JsonProcessingException e) {
                 throw new RuntimeException(
@@ -188,13 +112,16 @@ public class RedisJsonFormatter implements RedisFormatter<Object, String> {
         };
     }
 
-    private Deserializer createRowDeserializer(RowType type) {
-        final Deserializer[] fieldDeserializer =
-                type.getFields().stream()
-                        .map(RowType.RowField::getType)
-                        .map(this::createDeserializer)
-                        .toArray(Deserializer[]::new);
-        final String[] fieldNames = type.getFieldNames().toArray(new String[0]);
+    @Override
+    public Deserializer<String, Object> createRowDeserializer(RowType type) {
+        final List<RowType.RowField> fields = type.getFields();
+        final int fieldCount = fields.size();
+        final String[] fieldNames = new String[fieldCount];
+        final Deserializer<String, Object>[] fieldDeserializers = new Deserializer[fieldCount];
+        for (int i = 0; i < fieldCount; i++) {
+            fieldNames[i] = fields.get(i).getName();
+            fieldDeserializers[i] = this.createDeserializer(fields.get(i).getType());
+        }
         return value -> {
             JsonNode jsonNode;
             try {
@@ -209,7 +136,7 @@ public class RedisJsonFormatter implements RedisFormatter<Object, String> {
                             if (field == null) {
                                 row.setField(i, null);
                             } else {
-                                Object deserializedField = fieldDeserializer[i].convert(field.textValue());
+                                Object deserializedField = fieldDeserializers[i].deserialize(field.textValue());
                                 row.setField(i, deserializedField);
                             }
                         } catch (Throwable t) {
@@ -219,7 +146,7 @@ public class RedisJsonFormatter implements RedisFormatter<Object, String> {
                     }
                     return row;
                 } else {
-                    throw new RuntimeException("Unsupported non-object data");
+                    throw new RuntimeException("Unsupported non-object data " + jsonNode);
                 }
             } catch (JsonProcessingException e) {
                 throw new RuntimeException(
@@ -228,73 +155,10 @@ public class RedisJsonFormatter implements RedisFormatter<Object, String> {
         };
     }
 
-    private Serializer createSerializer(LogicalType logicalType) {
-        switch (logicalType.getTypeRoot()) {
-            case NULL:
-                return value -> "null";
-            case BOOLEAN:
-                return value -> RedisFormatterUtils.formatBoolean((Boolean) value);
-            case TINYINT:
-                return value -> RedisFormatterUtils.formatByte((Byte) value);
-            case SMALLINT:
-                return value -> RedisFormatterUtils.formatShort((Short) value);
-            case INTEGER:
-            case INTERVAL_YEAR_MONTH:
-                return value -> RedisFormatterUtils.formatInt((Integer) value);
-            case BIGINT:
-            case INTERVAL_DAY_TIME:
-                return value -> RedisFormatterUtils.formatLong((Long) value);
-            case FLOAT:
-                return value -> RedisFormatterUtils.formatFloat((Float) value);
-            case DOUBLE:
-                return value -> RedisFormatterUtils.formatDouble((Double) value);
-            case CHAR:
-            case VARCHAR:
-                // value is BinaryString
-                return Object::toString;
-            case BINARY:
-            case VARBINARY:
-                return value -> RedisFormatterUtils.bytesToHex((byte[]) value);
-            case DATE:
-                return value -> RedisFormatterUtils.formatDate((LocalDate) value);
-            case TIME_WITHOUT_TIME_ZONE:
-                return value -> RedisFormatterUtils.formatTime((LocalTime) value);
-            case TIMESTAMP_WITHOUT_TIME_ZONE:
-                return value -> {
-                    LocalDateTime dateTime = ((TimestampData) value).toLocalDateTime();
-                    return RedisFormatterUtils.formatDateTime(dateTime);
-                };
-            case TIMESTAMP_WITH_LOCAL_TIME_ZONE:
-                return value -> {
-                    LocalDateTime dateTime = ((TimestampData) value).toLocalDateTime();
-                    return RedisFormatterUtils.formatDateTimeWithLocalTimeZone(dateTime);
-                };
-            case DECIMAL:
-                return value -> {
-                    BigDecimal decimal = ((DecimalData) value).toBigDecimal();
-                    return String.valueOf(decimal);
-                };
-            case ARRAY:
-                return createArraySerializer((ArrayType) logicalType);
-            case MAP:
-                MapType mapType = (MapType) logicalType;
-                return createMapSerializer(mapType.asSummaryString(), mapType.getKeyType(), mapType.getValueType());
-            case MULTISET:
-                MultisetType multisetType = (MultisetType) logicalType;
-                return createMapSerializer(multisetType.asSummaryString(),
-                        multisetType.getElementType(),
-                        new IntType());
-            case ROW:
-                return createRowSerializer((RowType) logicalType);
-            case RAW:
-            default:
-                throw new UnsupportedOperationException("Redis json format not support to parse type: " + logicalType);
-        }
-    }
-
-    private Serializer createArraySerializer(ArrayType type) {
+    @Override
+    public Serializer<Object, String> createArraySerializer(ArrayType type) {
         final LogicalType elementType = type.getElementType();
-        final Serializer elementSerializer = createSerializer(elementType);
+        final Serializer<Object, String> elementSerializer = createSerializer(elementType);
         final ArrayData.ElementGetter elementGetter = ArrayData.createElementGetter(elementType);
         return value -> {
             ArrayData array = (ArrayData) value;
@@ -302,7 +166,7 @@ public class RedisJsonFormatter implements RedisFormatter<Object, String> {
             int numElements = array.size();
             for (int i = 0; i < numElements; i++) {
                 Object element = elementGetter.getElementOrNull(array, i);
-                data[i] = elementSerializer.convert(element);
+                data[i] = elementSerializer.serialize(element);
             }
             try {
                 return objectMapper.writeValueAsString(data);
@@ -313,14 +177,14 @@ public class RedisJsonFormatter implements RedisFormatter<Object, String> {
         };
     }
 
-    private Serializer createMapSerializer(String typeSummary, LogicalType keyType, LogicalType valueType) {
-        if (!LogicalTypeChecks.hasFamily(keyType, LogicalTypeFamily.CHARACTER_STRING)) {
+    public Serializer<Object, String> createMapSerializer(String typeSummary, LogicalType keyType, LogicalType valueType) {
+        if (!keyType.getTypeRoot().getFamilies().contains(LogicalTypeFamily.CHARACTER_STRING)) {
             throw new UnsupportedOperationException(
                     "Redis json format doesn't support non-string as key type of map. "
                             + "The type is: "
                             + typeSummary);
         }
-        final Serializer valueSerializer = createSerializer(valueType);
+        final Serializer<Object, String> valueSerializer = createSerializer(valueType);
         final ArrayData.ElementGetter valueGetter = ArrayData.createElementGetter(valueType);
         return value -> {
             MapData map = (MapData) value;
@@ -339,7 +203,7 @@ public class RedisJsonFormatter implements RedisFormatter<Object, String> {
                 if (fieldValue == null) {
                     data.put(fieldName, null);
                 } else {
-                    data.put(fieldName, valueSerializer.convert(fieldValue));
+                    data.put(fieldName, valueSerializer.serialize(fieldValue));
                 }
             }
             try {
@@ -351,17 +215,19 @@ public class RedisJsonFormatter implements RedisFormatter<Object, String> {
         };
     }
 
-    private Serializer createRowSerializer(RowType type) {
-        final String[] fieldNames = type.getFieldNames().toArray(new String[0]);
-        final LogicalType[] fieldTypes =
-                type.getFields().stream()
-                        .map(RowType.RowField::getType)
-                        .toArray(LogicalType[]::new);
-        final Serializer[] serializers =  Arrays.stream(fieldTypes)
-                .map(this::createSerializer)
-                .toArray(Serializer[]::new);
-        final int fieldCount = type.getFieldCount();
-        final RowData.FieldGetter[] fieldGetters = new RowData.FieldGetter[fieldTypes.length];
+    @Override
+    public Serializer<Object, String> createRowSerializer(RowType type) {
+        final List<RowType.RowField> fields = type.getFields();
+        final int fieldCount = fields.size();
+        final String[] fieldNames = new String[fieldCount];
+        final LogicalType[] fieldTypes = new LogicalType[fieldCount];
+        final Serializer<Object, String>[] serializers = new Serializer[fieldCount];
+        for (int i = 0; i < fields.size(); i++) {
+            fieldNames[i] = fields.get(i).getName();
+            fieldTypes[i] = fields.get(i).getType();
+            serializers[i] = this.createSerializer(fields.get(i).getType());
+        }
+        final RowData.FieldGetter[] fieldGetters = new RowData.FieldGetter[fieldCount];
         for (int i = 0; i < fieldCount; i++) {
             fieldGetters[i] = RowData.createFieldGetter(fieldTypes[i], i);
         }
@@ -375,7 +241,7 @@ public class RedisJsonFormatter implements RedisFormatter<Object, String> {
                     if (fieldValue == null) {
                         data.put(fieldName, null);
                     } else {
-                        data.put(fieldName, serializers[i].convert(fieldValue));
+                        data.put(fieldName, serializers[i].serialize(fieldValue));
                     }
                 } catch (Throwable t) {
                     throw new RuntimeException(

@@ -19,7 +19,6 @@ public interface RedisFormatter<T, U> extends Serializable {
         return null;
     }
 
-
     default SerializationSchema<T> getSerializationSchema() {
         return null;
     }
