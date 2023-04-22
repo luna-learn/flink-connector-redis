@@ -82,7 +82,8 @@ SELECT
 | lookup.cache.max-size   |int| -1        | 可选, lookup 缓存最大数量, -1 表示不使用缓存                                                                               |
 | lookup.cache.expire-ms  |int| -1        | 可选, lookup 缓存过期时间                                                                                           |
 | lookup.retry.max-times  |int| 1         | 可选, lookup 重试次数                                                                                             |
-| sink.key-ttl            |int| -1        | 可选, 使用 redis sink 写入数据时, key 对应的数据生命周期, 单位为毫秒, -1 表示不过期                                                     |                     |
+| sink.key-ttl            |int| -1        | 可选, 使用 redis sink 写入数据时, key 对应的数据生命周期, 单位为毫秒, -1 表示不过期                                                     |
+| sink.parallelism        |int| 1         | 可选, Sink 使用的线程并发数，默认为1，取值不能小于1                                                                              |
 | stream.group-name       |string|           | 可选, stream 消费者组名称, 为空表示不使用消费者组进行消费, 参考 https://redis.io/docs/data-types/streams-tutorial/                   |
 | stream.entry-id         |string|           | 可选, stream 消费者开始入口标识, 格式为"时间戳-数字序号", 参考 https://redis.io/docs/data-types/streams-tutorial/                  |
 
