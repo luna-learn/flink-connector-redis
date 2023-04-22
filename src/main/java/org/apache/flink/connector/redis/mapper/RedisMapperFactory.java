@@ -122,6 +122,7 @@ public class RedisMapperFactory {
         protected void fill(RedisBaseMapper<T> mapper) {
             mapper.setAdditionalKey(additionalKey);
             mapper.setKeyTtl(keyTtl);
+            mapper.setFormat(format);
             mapper.setIdentifier(identifier);
             mapper.setPrimaryKey(primaryKey);
             mapper.setResultType(resultType);

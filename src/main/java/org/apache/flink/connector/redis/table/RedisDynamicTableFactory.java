@@ -23,7 +23,6 @@ import org.apache.flink.table.types.logical.LogicalType;
 import org.apache.flink.table.types.logical.LogicalTypeFamily;
 import org.apache.flink.table.types.logical.LogicalTypeRoot;
 import org.apache.flink.table.types.logical.RowType;
-import org.apache.flink.table.types.logical.utils.LogicalTypeChecks;
 import org.apache.flink.table.utils.TableSchemaUtils;
 
 import java.util.*;
@@ -120,14 +119,14 @@ public class RedisDynamicTableFactory implements DynamicTableSourceFactory, Dyna
 
         optional.add(RedisOptions.ADDITIONAL_KEY);
         optional.add(RedisOptions.KEY_TTL);
+        optional.add(RedisOptions.SINK_PARALLELISM);
+
 
         optional.add(RedisOptions.LOOKUP_CACHE_MAX_SIZE);
         optional.add(RedisOptions.LOOKUP_CACHE_EXPIRE_MS);
         optional.add(RedisOptions.LOOKUP_MAX_RETRY_TIMES);
         optional.add(RedisOptions.SCAN_IS_BOUNDED);
 
-        optional.add(RedisOptions.STEAM_GROUP_NAME);
-        optional.add(RedisOptions.STEAM_ENTRY_ID);
         return optional;
     }
 
@@ -156,7 +155,7 @@ public class RedisDynamicTableFactory implements DynamicTableSourceFactory, Dyna
             if (primaryKey.isPresent()) {
                 // 主键必须为字符类型
                 LogicalType logicalType = primaryKey.get().getType().getLogicalType();
-                if (!LogicalTypeChecks.hasFamily(logicalType, LogicalTypeFamily.CHARACTER_STRING)) {
+                if (!logicalType.getTypeRoot().getFamilies().contains(LogicalTypeFamily.CHARACTER_STRING)) {
                     throw new RedisSchemaException("Redis table " + identifier.asSummaryString()
                             + " primary key type unsupported non-string type, " +
                             "but provided [" + logicalType + "].");
@@ -231,12 +230,13 @@ public class RedisDynamicTableFactory implements DynamicTableSourceFactory, Dyna
                 .setAdditionalKey(config.get(RedisOptions.ADDITIONAL_KEY))
                 .setIdentifier(identifier)
                 .setKeyTtl(config.get(RedisOptions.KEY_TTL))
+                .setFormat(config.getOptional(FactoryUtil.FORMAT).orElse("json").toLowerCase())
                 .setPrimaryKey(primaryKey)
                 .setResultType(resultType.getLogicalType())
                 .setResultFieldNames(resultFieldNames.toArray(new String[0]))
                 .setResultFieldTypes(resultFieldTypes.toArray(new LogicalType[0]))
                 .setGroupName(config.get(RedisOptions.STEAM_GROUP_NAME))
-                .setStreamEntryId(config.get(RedisOptions.STEAM_ENTRY_ID))
+                .setStreamEntryId(config.get(RedisOptions.STEAM_ENTITY_ID))
                 .build();
         return mapper;
     }
