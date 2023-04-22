@@ -2,6 +2,7 @@ package org.apache.flink.connector.redis.mapper;
 
 import org.apache.flink.connector.redis.RedisUnsupportedException;
 import org.apache.flink.connector.redis.container.RedisContainer;
+import org.apache.flink.connector.redis.formatter.RedisCsvFormatter;
 import org.apache.flink.connector.redis.formatter.RedisFormatter;
 import org.apache.flink.connector.redis.formatter.RedisJsonFormatter;
 import org.apache.flink.table.catalog.ObjectIdentifier;
@@ -31,7 +32,6 @@ public abstract class RedisBaseMapper<T> implements RedisMapper<T> {
     protected LogicalType      resultType;
     protected String[]         resultFieldNames;
     protected LogicalType[]    resultFieldTypes;
-
     protected List<RedisFormatter<Object, String>> formatters;
     protected RedisFormatter<Object, String> formatter;
     protected RowData.FieldGetter[] fieldGetters;
@@ -134,6 +134,7 @@ public abstract class RedisBaseMapper<T> implements RedisMapper<T> {
             case "json":
                 return new RedisJsonFormatter(logicalType);
             case "csv":
+                return new RedisCsvFormatter(logicalType, ',', '"', '\\', "\n");
             case "raw":
             default:
                 throw new RedisUnsupportedException("Not supported type[" + logicalType+ "] format[" + format + "]");
