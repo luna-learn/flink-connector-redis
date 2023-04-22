@@ -1,11 +1,13 @@
 package org.apache.flink.connector.redis.mapper;
 
+import org.apache.flink.connector.redis.RedisUnsupportedException;
 import org.apache.flink.connector.redis.container.RedisContainer;
 import org.apache.flink.connector.redis.formatter.RedisFormatterUtils;
 import org.apache.flink.connector.redis.formatter.RedisStoreStrategy;
 import org.apache.flink.table.data.GenericRowData;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.data.StringData;
+import org.apache.flink.table.types.logical.LogicalTypeRoot;
 
 import java.io.IOException;
 
@@ -44,7 +46,14 @@ public class RedisStringMapper extends RedisRowDataMapper {
         Object fieldValue;
         try {
             // 写入数据
-            fieldValue = fieldGetters[1].getFieldOrNull(row);
+            if (resultType.getTypeRoot() == LogicalTypeRoot.ROW) {
+                final int fieldNum = resultFieldNames.length;
+                fieldValue = row.getRow(1, fieldNum);
+            } else if (resultType.getTypeRoot() == LogicalTypeRoot.VARCHAR) {
+                fieldValue = row.getString(1);
+            } else {
+                throw new RedisUnsupportedException("Not supported [" + key + "] " + resultType + " type row[1]: " + row);
+            }
             String value = formatters.get(0).serialize(fieldValue);
             container.set(key, value);
             if (keyTtl != null && keyTtl > 0) {
